@@ -7,10 +7,10 @@ type LinkType = {
   code: string;
   url: string;
   clicks: number;
-  createdAt: string;
+  lastClicked: string | null;
 };
 
-type SortField = "code" | "clicks" | "createdAt";
+type SortField = "code" | "clicks" | "lastClicked";
 type SortDirection = "asc" | "desc";
 
 export default function DashboardContent() {
@@ -18,8 +18,29 @@ export default function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("");
-  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortField, setSortField] = useState<SortField>("lastClicked");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
+  const [newUrl, setNewUrl] = useState("");
+
+  const handleCreate = async () => {
+    if (!newUrl) return toast.error("URL cannot be empty");
+
+    try {
+      const res = await fetch("/api/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: newUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create");
+      setLinks((prev) => [data, ...prev]);
+      setNewUrl("");
+      toast.success("Link created successfully!");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
 
   useEffect(() => {
     fetch("/api/links")
@@ -75,9 +96,9 @@ export default function DashboardContent() {
           aVal = a.clicks;
           bVal = b.clicks;
           break;
-        case "createdAt":
-          aVal = new Date(a.createdAt).getTime();
-          bVal = new Date(b.createdAt).getTime();
+        case "lastClicked":
+          aVal = new Date(a.lastClicked || 0).getTime();
+          bVal = new Date(b.lastClicked || 0).getTime();
           break;
       }
       if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
@@ -94,6 +115,24 @@ export default function DashboardContent() {
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <Toaster position="top-right" />
+      <div className="mb-6 border p-4 rounded bg-gray-900">
+        <h2 className="text-xl font-bold mb-2">Create New Short Link</h2>
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            placeholder="Enter URL"
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            className="flex-1 p-2 rounded border border-gray-700 bg-gray-800 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleCreate}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+          >
+            Create
+          </button>
+        </div>
+      </div>
       <h1 className="text-3xl font-bold mb-6 text-center">All Short Links</h1>
 
       <div className="mb-4">
@@ -129,11 +168,11 @@ export default function DashboardContent() {
               </th>
               <th
                 className={`border px-4 py-2 cursor-pointer ${
-                  sortField === "createdAt" ? "bg-gray-600 font-semibold" : ""
+                  sortField === "lastClicked" ? "bg-gray-600 font-semibold" : ""
                 }`}
-                onClick={() => handleSort("createdAt")}
+                onClick={() => handleSort("lastClicked")}
               >
-                Created {sortDir === "asc" ? "▲" : "▼"}
+                Last Clicked {sortDir === "asc" ? "▲" : "▼"}
               </th>
               <th className="border px-4 py-2">Actions</th>
             </tr>
@@ -144,8 +183,8 @@ export default function DashboardContent() {
                 <td className="border px-4 py-2 font-mono">{link.code}</td>
                 <td className="border px-4 py-2 truncate max-w-xs" title={link.url}>{link.url}</td>
                 <td className="border px-4 py-2">{link.clicks}</td>
-                <td className="border px-4 py-2">{new Date(link.createdAt).toLocaleDateString()}</td>
-                <td className="border px-4 py-2 flex space-x-2">
+                <td className="border px-4 py-2">{link.lastClicked ? new Date(link.lastClicked).toLocaleString() : "-"}</td>
+                <td className="border px-4 py-4 flex space-x-2">
                   <button
                     onClick={() => handleCopy(`${window.location.origin}/${link.code}`)}
                     className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
